@@ -1,0 +1,111 @@
+name: macOS BlueStacks Environment
+
+on: workflow_dispatch
+
+jobs:
+  macos-bluestacks:
+    runs-on: macos-13  # or macos-latest
+    
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}   # <- use Auth key here
+          tags: tag:ci
+
+      - name: Check Virtualization Support
+        run: |
+          echo "=== Checking Hypervisor Support ==="
+          sysctl kern.hv_support
+          sysctl -a | grep -i vmx || echo "VMX check complete"
+          
+          echo ""
+          echo "=== CPU Information ==="
+          sysctl -n machdep.cpu.brand_string
+          
+          echo ""
+          echo "=== macOS Version ==="
+          sw_vers
+      
+      - name: Setup Environment for BlueStacks
+        run: |
+          echo "=== Installing Dependencies ==="
+          brew install --cask osxfuse || true
+          sudo mkdir -p /mnt
+          sudo chmod 777 /mnt
+          echo "Environment prepared for emulator installation"
+          echo ""
+          echo "=== Available Disk Space ==="
+          df -h
+      
+      - name: Get Tailscale IP
+        run: |
+          echo "======================================"
+          echo "Connect via VNC to this Tailscale IP:"
+          tailscale ip -4
+          echo "Password: bluestacks123"
+          echo "======================================"
+      
+      - name: Enable Screen Sharing (VNC)
+        run: |
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -allowAccessFor -allUsers -privs -all
+          
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvnclegacy -vnclegacy yes
+          
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvncpw -vncpw bluestacks123
+          
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -restart -agent -console
+          
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate
+          
+          echo "VNC enabled successfully"
+      
+      - name: Set Display Resolution
+        run: |
+          /Library/Application Support/VMware Tools/vmware-resolutionSet 1920 1080 || \
+          /Library/Application Support/VMware Tools/vmware-resolutionSet 1680 1050 || \
+          echo "Using default resolution"
+      
+      - name: Prepare BlueStacks Directory
+        run: |
+          mkdir -p ~/Library/BlueStacks
+          mkdir -p ~/Documents/BlueStacks
+          echo "export PATH=$PATH:~/Library/BlueStacks\\ App\\ Player/Runtime" >> ~/.zshrc
+          echo "Directories prepared"
+      
+      - name: Keep Session Alive
+        run: |
+          echo "================================================"
+          echo "Session is now ready!"
+          echo ""
+          echo "Connect via VNC from your Tailscale network:"
+          echo "  VNC Address: $(tailscale ip -4):5900"
+          echo "  Password: bluestacks123"
+          echo ""
+          echo "Then manually:"
+          echo "1. Download BlueStacks from browser"
+          echo "2. Install BlueStacks.dmg"
+          echo "3. Accept security permissions"
+          echo ""
+          echo "BlueStacks ADB will be at:"
+          echo "  ~/Library/BlueStacks App Player/Runtime/uHD-Adb"
+          echo ""
+          echo "Session will stay alive for 6 hours..."
+          echo "================================================"
+          sleep 21600
+      
+      - name: Post-Install Info (if reached)
+        if: always()
+        run: |
+          echo "=== BlueStacks Installation Status ==="
+          if ls -d ~/Library/BlueStacks* >/dev/null 2>&1; then
+            echo "BlueStacks directory found"
+            ls -la ~/Library/BlueStacks* 2>/dev/null || true
+          else
+            echo "BlueStacks not yet installed"
+          fi
