@@ -4,25 +4,23 @@ on: workflow_dispatch
 
 jobs:
   macos-bluestacks:
-    runs-on: macos-13  # or macos-latest
+    runs-on: macos-latest
     
     steps:
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
-          authkey: ${{ secrets.TS_AUTHKEY }}   # <- use Auth key here
+          authkey: ${{ secrets.TS_AUTHKEY }}
           tags: tag:ci
-
+      
       - name: Check Virtualization Support
         run: |
           echo "=== Checking Hypervisor Support ==="
           sysctl kern.hv_support
           sysctl -a | grep -i vmx || echo "VMX check complete"
-          
           echo ""
           echo "=== CPU Information ==="
           sysctl -n machdep.cpu.brand_string
-          
           echo ""
           echo "=== macOS Version ==="
           sw_vers
@@ -50,19 +48,14 @@ jobs:
         run: |
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -allowAccessFor -allUsers -privs -all
-          
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvnclegacy -vnclegacy yes
-          
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvncpw -vncpw bluestacks123
-          
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -restart -agent -console
-          
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate
-          
           echo "VNC enabled successfully"
       
       - name: Set Display Resolution
@@ -99,7 +92,7 @@ jobs:
           echo "================================================"
           sleep 21600
       
-      - name: Post-Install Info (if reached)
+      - name: Post-Install Info
         if: always()
         run: |
           echo "=== BlueStacks Installation Status ==="
