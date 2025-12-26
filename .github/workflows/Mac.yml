@@ -4,7 +4,7 @@ on: workflow_dispatch
 
 jobs:
   macos-bluestacks:
-    runs-on: macos-latest
+    runs-on: macOS-latest
     
     steps:
       - name: Connect to Tailscale
@@ -24,17 +24,6 @@ jobs:
           echo ""
           echo "=== macOS Version ==="
           sw_vers
-      
-      - name: Setup Environment for BlueStacks
-        run: |
-          echo "=== Installing Dependencies ==="
-          brew install --cask osxfuse || true
-          sudo mkdir -p /mnt
-          sudo chmod 777 /mnt
-          echo "Environment prepared for emulator installation"
-          echo ""
-          echo "=== Available Disk Space ==="
-          df -h
       
       - name: Get Tailscale IP
         run: |
@@ -66,9 +55,9 @@ jobs:
       
       - name: Prepare BlueStacks Directory
         run: |
-          mkdir -p ~/Library/BlueStacks
-          mkdir -p ~/Documents/BlueStacks
-          echo "export PATH=$PATH:~/Library/BlueStacks\\ App\\ Player/Runtime" >> ~/.zshrc
+          mkdir -p "$HOME/Library/BlueStacks"
+          mkdir -p "$HOME/Documents/BlueStacks"
+          echo 'export PATH=$PATH:$HOME/Library/BlueStacks App Player/Runtime' >> "$HOME/.zshrc" || true
           echo "Directories prepared"
       
       - name: tmate session
