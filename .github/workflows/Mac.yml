@@ -15,12 +15,12 @@ jobs:
       
       - name: Check Virtualization Support
         run: |
-          echo "=== Checking Hypervisor Support ==="
-          sysctl kern.hv_support
-          sysctl -a | grep -i vmx || echo "VMX check complete"
+          echo "=== Checking Virtualization Support ==="
+          sysctl -a | grep -i hv_support || echo "No kern.hv_support (normal on newer macOS)"
+          sysctl -a | grep -i hypervisor || echo "Hypervisor flag check complete"
           echo ""
           echo "=== CPU Information ==="
-          sysctl -n machdep.cpu.brand_string
+          sysctl -n machdep.cpu.brand_string || true
           echo ""
           echo "=== macOS Version ==="
           sw_vers
@@ -71,7 +71,11 @@ jobs:
           echo "export PATH=$PATH:~/Library/BlueStacks\\ App\\ Player/Runtime" >> ~/.zshrc
           echo "Directories prepared"
       
+      - name: tmate session
+        uses: mxschmitt/action-tmate@v3
+      
       - name: Keep Session Alive
+        if: always()
         run: |
           echo "================================================"
           echo "Session is now ready!"
@@ -79,6 +83,8 @@ jobs:
           echo "Connect via VNC from your Tailscale network:"
           echo "  VNC Address: $(tailscale ip -4):5900"
           echo "  Password: bluestacks123"
+          echo ""
+          echo "You can also SSH with tmate using the connection string shown in the logs."
           echo ""
           echo "Then manually:"
           echo "1. Download BlueStacks from browser"
@@ -91,14 +97,3 @@ jobs:
           echo "Session will stay alive for 6 hours..."
           echo "================================================"
           sleep 21600
-      
-      - name: Post-Install Info
-        if: always()
-        run: |
-          echo "=== BlueStacks Installation Status ==="
-          if ls -d ~/Library/BlueStacks* >/dev/null 2>&1; then
-            echo "BlueStacks directory found"
-            ls -la ~/Library/BlueStacks* 2>/dev/null || true
-          else
-            echo "BlueStacks not yet installed"
-          fi
