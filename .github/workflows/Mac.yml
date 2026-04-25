@@ -14,64 +14,40 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Set Display to 1920x1080
+      - name: Install NoMachine Server
         run: |
-          brew install jakehilborn/jakehilborn/displayplacer
-          SCREEN_ID=$(displayplacer list | grep "Persistent screen id" | head -1 | awk '{print $NF}')
-          # mode:10 = 1920x1080 (confirmed from your logs)
-          displayplacer "id:$SCREEN_ID mode:10"
-          echo "Display set to 1920x1080"
+          # Download NoMachine for Apple Silicon (ARM64)
+          curl -L "https://download.nomachine.com/download/8.15/Mac/nomachine_8.15.3_1_arm64.pkg" \
+            -o /tmp/nomachine.pkg
+          sudo installer -pkg /tmp/nomachine.pkg -target /
+          sleep 5
+          echo "NoMachine installed!"
 
-      - name: Disable Screensaver & Prevent Sleep
+      - name: Start NoMachine & Set Password
         run: |
-          sudo pmset -a sleep 0 displaysleep 0 disksleep 0 powernap 0
-          sudo caffeinate -dimsu &
-          # Kill screensaver
-          killall ScreenSaverEngine 2>/dev/null || true
-          # Disable screensaver permanently
-          defaults -currentHost write com.apple.screensaver idleTime 0
-          defaults write com.apple.screensaver idleTime 0
-
-      - name: Wake WindowServer & Open GUI
-        run: |
-          # Force open multiple apps to ensure WindowServer renders
-          open -a Finder
-          sleep 2
-          open -a Terminal
-          sleep 2
-          # Bring Finder to front
-          osascript -e 'tell application "Finder" to activate'
-          sleep 1
-          # Simulate mouse movement to wake display
-          osascript << 'EOF'
-          tell application "System Events"
-            set the frontmost of every process whose name is "Finder" to true
-          end tell
-          EOF
-          sleep 2
-
-      - name: Enable VNC Screen Sharing
-        run: |
-          tccutil reset ScreenCapture 2>/dev/null || true
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate -configure \
-            -access -on \
-            -allowAccessFor -allUsers \
-            -clientopts -setvnclegacy -vnclegacy yes \
-            -clientopts -setvncpw -vncpw rewardoxy123 \
-            -restart -agent -privs -all
-          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null || true
+          # Start NX services
+          sudo /usr/NX/bin/nxserver --startup
           sleep 3
-          echo "VNC ready!"
+          # Set runner password for NoMachine login
+          printf "rewardoxy123\nrewardoxy123\n" | sudo /usr/NX/bin/nxserver --passwd runner
+          echo "NoMachine started!"
+
+      - name: Disable Sleep
+        run: |
+          sudo pmset -a sleep 0 displaysleep 0 disksleep 0
+          sudo caffeinate -dimsu &
 
       - name: Print Connection Info
         run: |
           echo "================================"
+          echo "  NOMACHINE CONNECTION"
           echo "  IP  : $(tailscale ip -4)"
-          echo "  Port: 5900"
+          echo "  Port: 4000"
+          echo "  User: runner"
           echo "  Pass: rewardoxy123"
-          echo "  (Use TightVNC - no username needed)"
           echo "================================"
+          echo "Download NoMachine client (Windows):"
+          echo "https://download.nomachine.com/download/8.15/Windows/nomachine_8.15.3_3_x86_64.exe"
 
       - name: Keep Alive
         run: sleep 20000
