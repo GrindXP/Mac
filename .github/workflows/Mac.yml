@@ -17,38 +17,36 @@ jobs:
       - name: Install NoMachine via Homebrew
         run: |
           brew install --cask nomachine
-          echo "NoMachine installed: $(ls /Applications/ | grep -i nomachine)"
 
       - name: Start NoMachine Server
         run: |
-          sudo /usr/NX/bin/nxserver --startup
+          # NoMachine v9 binary is inside the app bundle on macOS
+          NX_BIN="/Applications/NoMachine.app/Contents/Frameworks/bin"
+          echo "NX binaries: $(ls $NX_BIN)"
+          
+          # Start the server
+          sudo "$NX_BIN/nxserver" --startup || true
           sleep 5
-          sudo /usr/NX/bin/nxserver --status
+          sudo "$NX_BIN/nxserver" --status || true
 
-      - name: Disable Sleep
+      - name: Disable Sleep & Keep Awake
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0
           sudo caffeinate -dimsu &
-
-      - name: Open Finder to activate GUI
-        run: |
           open -a Finder
-          sleep 3
+          sleep 2
 
       - name: Print Connection Info
         run: |
-          TAILSCALE_IP=$(tailscale ip -4)
+          NX_BIN="/Applications/NoMachine.app/Contents/Frameworks/bin"
           echo "================================"
           echo "  NOMACHINE CONNECTION"
-          echo "  IP  : $TAILSCALE_IP"
+          echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 4000"
           echo "  User: runner"
-          echo "  Pass: (your Mac runner has no password set)"
-          echo "  NOTE: Leave password blank OR set one below"
+          echo "  Pass: (leave blank)"
           echo "================================"
-          echo ""
-          echo "Download NoMachine for Windows:"
-          echo "https://www.nomachine.com/download"
+          sudo "$NX_BIN/nxserver" --status
 
       - name: Keep Alive
         run: sleep 20000
