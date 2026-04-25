@@ -14,40 +14,41 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Install NoMachine Server
+      - name: Install NoMachine via Homebrew
         run: |
-          # Download NoMachine for Apple Silicon (ARM64)
-          curl -L "https://download.nomachine.com/download/8.15/Mac/nomachine_8.15.3_1_arm64.pkg" \
-            -o /tmp/nomachine.pkg
-          sudo installer -pkg /tmp/nomachine.pkg -target /
-          sleep 5
-          echo "NoMachine installed!"
+          brew install --cask nomachine
+          echo "NoMachine installed: $(ls /Applications/ | grep -i nomachine)"
 
-      - name: Start NoMachine & Set Password
+      - name: Start NoMachine Server
         run: |
-          # Start NX services
           sudo /usr/NX/bin/nxserver --startup
-          sleep 3
-          # Set runner password for NoMachine login
-          printf "rewardoxy123\nrewardoxy123\n" | sudo /usr/NX/bin/nxserver --passwd runner
-          echo "NoMachine started!"
+          sleep 5
+          sudo /usr/NX/bin/nxserver --status
 
       - name: Disable Sleep
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0
           sudo caffeinate -dimsu &
 
+      - name: Open Finder to activate GUI
+        run: |
+          open -a Finder
+          sleep 3
+
       - name: Print Connection Info
         run: |
+          TAILSCALE_IP=$(tailscale ip -4)
           echo "================================"
           echo "  NOMACHINE CONNECTION"
-          echo "  IP  : $(tailscale ip -4)"
+          echo "  IP  : $TAILSCALE_IP"
           echo "  Port: 4000"
           echo "  User: runner"
-          echo "  Pass: rewardoxy123"
+          echo "  Pass: (your Mac runner has no password set)"
+          echo "  NOTE: Leave password blank OR set one below"
           echo "================================"
-          echo "Download NoMachine client (Windows):"
-          echo "https://download.nomachine.com/download/8.15/Windows/nomachine_8.15.3_3_x86_64.exe"
+          echo ""
+          echo "Download NoMachine for Windows:"
+          echo "https://www.nomachine.com/download"
 
       - name: Keep Alive
         run: sleep 20000
