@@ -14,10 +14,28 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Set runner password (macOS method)
+      - name: Create Virtual Display
         run: |
-          # Use sysadminctl instead of dscl - works without old password
-          sudo sysadminctl -resetPasswordFor runner -newPassword rewardoxy123
+          # Install displayplacer to create virtual display
+          brew install jakehilborn/jakehilborn/displayplacer
+          # Create 1920x1080 virtual display
+          displayplacer "res:1920x1080 hz:60 color_depth:8 scaling:off origin:(0,0) degree:0" || true
+
+      - name: Prevent Sleep & Wake Display
+        run: |
+          sudo pmset -a sleep 0 displaysleep 0 disksleep 0
+          # Keep system awake
+          caffeinate -d &
+          # Force GUI session
+          open -a Finder
+          sleep 3
+          osascript -e 'tell application "Finder" to activate'
+          sleep 2
+
+      - name: Reset Screen Capture Permissions
+        run: |
+          tccutil reset ScreenCapture || true
+          tccutil reset Screen || true
 
       - name: Enable VNC Screen Sharing
         run: |
@@ -28,18 +46,17 @@ jobs:
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw rewardoxy123 \
             -restart -agent -privs -all
-          echo "VNC ready"
 
       - name: Enable screen sharing daemon
         run: |
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null || true
+          sleep 3
 
       - name: Print Connection Info
         run: |
           echo "================================"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 5900"
-          echo "  User: runner"
           echo "  Pass: rewardoxy123"
           echo "================================"
 
