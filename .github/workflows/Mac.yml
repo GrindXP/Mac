@@ -23,12 +23,21 @@ jobs:
           sudo "$NX_BIN/nxserver" --startup || true
           sleep 3
 
-      - name: Reset Runner Password (sysadminctl)
+      - name: Set Root Password (bypasses secure token!)
         run: |
-          sudo sysadminctl -resetPasswordFor runner -newPassword rewardoxy123
-          echo "Exit: $?"
+          printf "rewardoxy123\nrewardoxy123\n" | sudo passwd root
+          echo "Root password set: $?"
 
-      - name: Keep Session Alive
+      - name: Enable Root Login for NoMachine
+        run: |
+          # Allow root login via NX
+          NX_CFG="/Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg"
+          sudo sed -i '' 's/#EnableRootLogin 1/EnableRootLogin 1/' "$NX_CFG" || true
+          echo "EnableRootLogin 1" | sudo tee -a "$NX_CFG"
+          sudo /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver --restart || true
+          sleep 3
+
+      - name: Disable Sleep
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0
           sudo caffeinate -dimsu &
@@ -40,7 +49,7 @@ jobs:
           echo "================================"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 4000"
-          echo "  User: runner"
+          echo "  User: root"
           echo "  Pass: rewardoxy123"
           echo "================================"
 
