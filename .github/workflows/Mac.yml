@@ -23,38 +23,26 @@ jobs:
           sudo "$NX_BIN/nxserver" --startup || true
           sleep 3
 
-      - name: Create New User with Password
+      - name: Set Runner Password (empty old password method)
         run: |
-          # Create a brand new local user (no existing password = no verification needed)
-          sudo dscl . -create /Users/macuser
-          sudo dscl . -create /Users/macuser UserShell /bin/zsh
-          sudo dscl . -create /Users/macuser RealName "Mac User"
-          sudo dscl . -create /Users/macuser UniqueID 510
-          sudo dscl . -create /Users/macuser PrimaryGroupID 20
-          sudo dscl . -create /Users/macuser NFSHomeDirectory /Users/macuser
-          sudo mkdir -p /Users/macuser
-          sudo chown macuser /Users/macuser
-          # Set password on new user (no old password = works fine)
-          sudo dscl . -passwd /Users/macuser rewardoxy123
-          # Add to admin group
-          sudo dscl . -append /Groups/admin GroupMembership macuser
-          echo "User created successfully!"
-          # Verify
-          dscl . -read /Users/macuser UniqueID
+          # runner has no password = empty string as old password
+          sudo dscl . -passwd /Users/runner "" rewardoxy123
+          echo "Runner password set: $?"
 
-      - name: Disable Sleep
+      - name: Wake Active Session
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0
           sudo caffeinate -dimsu &
           open -a Finder
           sleep 2
+          osascript -e 'tell application "Finder" to activate'
 
       - name: Print Connection Info
         run: |
           echo "================================"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 4000"
-          echo "  User: macuser"
+          echo "  User: runner"
           echo "  Pass: rewardoxy123"
           echo "================================"
 
