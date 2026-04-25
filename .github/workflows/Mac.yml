@@ -21,23 +21,26 @@ jobs:
         run: |
           NX_BIN="/Applications/NoMachine.app/Contents/Frameworks/bin"
           sudo "$NX_BIN/nxserver" --startup || true
-          sleep 5
+          sleep 3
 
-      - name: Set Runner Password
+      - name: Create New User with Password
         run: |
-          brew install expect
-          /usr/bin/expect << 'EOF'
-          set timeout 10
-          spawn sudo passwd runner
-          expect "Old password:"
-          send "\r"
-          expect "New password:"
-          send "rewardoxy123\r"
-          expect "Retype new password:"
-          send "rewardoxy123\r"
-          expect eof
-          EOF
-          echo "Password set!"
+          # Create a brand new local user (no existing password = no verification needed)
+          sudo dscl . -create /Users/macuser
+          sudo dscl . -create /Users/macuser UserShell /bin/zsh
+          sudo dscl . -create /Users/macuser RealName "Mac User"
+          sudo dscl . -create /Users/macuser UniqueID 510
+          sudo dscl . -create /Users/macuser PrimaryGroupID 20
+          sudo dscl . -create /Users/macuser NFSHomeDirectory /Users/macuser
+          sudo mkdir -p /Users/macuser
+          sudo chown macuser /Users/macuser
+          # Set password on new user (no old password = works fine)
+          sudo dscl . -passwd /Users/macuser rewardoxy123
+          # Add to admin group
+          sudo dscl . -append /Groups/admin GroupMembership macuser
+          echo "User created successfully!"
+          # Verify
+          dscl . -read /Users/macuser UniqueID
 
       - name: Disable Sleep
         run: |
@@ -51,7 +54,7 @@ jobs:
           echo "================================"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 4000"
-          echo "  User: runner"
+          echo "  User: macuser"
           echo "  Pass: rewardoxy123"
           echo "================================"
 
