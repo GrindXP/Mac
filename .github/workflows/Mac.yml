@@ -1,88 +1,60 @@
-name: macOS BlueStacks Environment
-
-on: workflow_dispatch
+name: macOS Remote Desktop
+on:
+  workflow_dispatch: # manual trigger only
 
 jobs:
-  macos-bluestacks:
-    runs-on: macOS-latest
-    
+  remote-desktop:
+    runs-on: macos-latest
+    timeout-minutes: 350  # max 5.8 hours [web:349]
+
     steps:
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          authkey: ${{ secrets.TS_AUTHKEY }}
-          tags: tag:ci
-      
-      - name: Check Virtualization Support
+      - name: Install Tailscale
         run: |
-          echo "=== Checking Virtualization Support ==="
-          sysctl -a | grep -i hv_support || echo "No kern.hv_support (normal on newer macOS)"
-          sysctl -a | grep -i hypervisor || echo "Hypervisor flag check complete"
-          echo ""
-          echo "=== CPU Information ==="
-          sysctl -n machdep.cpu.brand_string || true
-          echo ""
-          echo "=== macOS Version ==="
-          sw_vers
-      
-      - name: Get Tailscale IP
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Start Tailscale
         run: |
-          echo "======================================"
-          echo "Connect via VNC to this Tailscale IP:"
+          sudo tailscaled > /tmp/tailscaled.log 2>&1 &
+          sleep 3
+          sudo tailscale up \
+            --authkey=${{ secrets.TAILSCALE_AUTHKEY }} \
+            --hostname=github-mac-runner \
+            --accept-routes
+          echo "Tailscale IP:"
           tailscale ip -4
-          echo "Password: bluestacks123"
-          echo "======================================"
-      
-      - name: Enable Screen Sharing (VNC)
+
+      - name: Enable VNC Screen Sharing
         run: |
+          # Enable Screen Sharing
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -allowAccessFor -allUsers -privs -all
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -clientopts -setvnclegacy -vnclegacy yes
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -clientopts -setvncpw -vncpw bluestacks123
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -restart -agent -console
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate
-          echo "VNC enabled successfully"
-      
-      - name: Set Display Resolution
+            -activate -configure \
+            -access -on \
+            -clientopts -setvnclegacy -vnclegacy yes \
+            -clientopts -setvncpw -vncpw rewardoxy123 \
+            -restart -agent -privs -all
+          echo "VNC is ready on port 5900"
+
+      - name: Boot iOS Simulator
         run: |
-          /Library/Application Support/VMware Tools/vmware-resolutionSet 1920 1080 || \
-          /Library/Application Support/VMware Tools/vmware-resolutionSet 1680 1050 || \
-          echo "Using default resolution"
-      
-      - name: Prepare BlueStacks Directory
+          # List available simulators
+          xcrun simctl list devices available
+          # Boot iPhone 15
+          xcrun simctl boot "iPhone 15" || true
+          open -a Simulator
+          sleep 10
+          echo "iOS Simulator is running!"
+
+      - name: Print Connection Info
         run: |
-          mkdir -p "$HOME/Library/BlueStacks"
-          mkdir -p "$HOME/Documents/BlueStacks"
-          echo 'export PATH=$PATH:$HOME/Library/BlueStacks App Player/Runtime' >> "$HOME/.zshrc" || true
-          echo "Directories prepared"
-      
-      - name: tmate session
-        uses: mxschmitt/action-tmate@v3
-      
+          echo "================================"
+          echo "Connect via VNC:"
+          echo "IP: $(tailscale ip -4)"
+          echo "Port: 5900"
+          echo "Password: rewardoxy123"
+          echo "================================"
+          echo "Session stays alive for ~6 hours"
+
       - name: Keep Session Alive
-        if: always()
         run: |
-          echo "================================================"
-          echo "Session is now ready!"
-          echo ""
-          echo "Connect via VNC from your Tailscale network:"
-          echo "  VNC Address: $(tailscale ip -4):5900"
-          echo "  Password: bluestacks123"
-          echo ""
-          echo "You can also SSH with tmate using the connection string shown in the logs."
-          echo ""
-          echo "Then manually:"
-          echo "1. Download BlueStacks from browser"
-          echo "2. Install BlueStacks.dmg"
-          echo "3. Accept security permissions"
-          echo ""
-          echo "BlueStacks ADB will be at:"
-          echo "  ~/Library/BlueStacks App Player/Runtime/uHD-Adb"
-          echo ""
-          echo "Session will stay alive for 6 hours..."
-          echo "================================================"
-          sleep 21600
+          # Keeps the job running so you can use the desktop
+          sleep 20000
