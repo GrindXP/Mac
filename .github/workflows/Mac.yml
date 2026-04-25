@@ -14,42 +14,32 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Install NoMachine
-        run: brew install --cask nomachine
-
-      - name: Start NoMachine Server
+      - name: Disable Sleep & Keep Awake
         run: |
-          NX_BIN="/Applications/NoMachine.app/Contents/Frameworks/bin"
-          sudo "$NX_BIN/nxserver" --startup || true
-          sleep 3
-
-      - name: Set Root Password (bypasses secure token!)
-        run: |
-          printf "rewardoxy123\nrewardoxy123\n" | sudo passwd root
-          echo "Root password set: $?"
-
-      - name: Enable Root Login for NoMachine
-        run: |
-          # Allow root login via NX
-          NX_CFG="/Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg"
-          sudo sed -i '' 's/#EnableRootLogin 1/EnableRootLogin 1/' "$NX_CFG" || true
-          echo "EnableRootLogin 1" | sudo tee -a "$NX_CFG"
-          sudo /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver --restart || true
-          sleep 3
-
-      - name: Disable Sleep
-        run: |
-          sudo pmset -a sleep 0 displaysleep 0 disksleep 0
+          sudo pmset -a sleep 0 displaysleep 0 disksleep 0 hibernatemode 0
           sudo caffeinate -dimsu &
           open -a Finder
           sleep 2
+
+      - name: Enable VNC Screen Sharing (own password, no system auth!)
+        run: |
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate \
+            -configure \
+            -access -on \
+            -allowAccessFor -allUsers \
+            -privs -all \
+            -clientopts -setvnclegacy -vnclegacy yes \
+            -clientopts -setvncpw -vncpw rewardoxy123 \
+            -restart -agent -privs -all
+          echo "VNC ready: $?"
+          sleep 3
 
       - name: Print Connection Info
         run: |
           echo "================================"
           echo "  IP  : $(tailscale ip -4)"
-          echo "  Port: 4000"
-          echo "  User: root"
+          echo "  Port: 5900 (VNC)"
           echo "  Pass: rewardoxy123"
           echo "================================"
 
