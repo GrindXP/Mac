@@ -14,14 +14,28 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Disable Sleep & Keep Awake
+      - name: Disable Sleep
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0 hibernatemode 0
           sudo caffeinate -dimsu &
-          open -a Finder
-          sleep 2
 
-      - name: Enable VNC Screen Sharing (own password, no system auth!)
+      - name: Grant Screen Recording Permission to ARDAgent (fix black screen!)
+        run: |
+          # Inject TCC screen capture permission directly
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+          "INSERT OR REPLACE INTO access \
+          (service, client, client_type, auth_value, auth_reason, auth_version, csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, indirect_object_code_identity, flags, last_modified) \
+          VALUES ('kTCCServiceScreenCapture', 'com.apple.RemoteDesktop', 0, 2, 4, 1, NULL, NULL, 0, 'UNUSED', NULL, 0, strftime('%s','now'));"
+
+          # Also grant to screensharingd
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+          "INSERT OR REPLACE INTO access \
+          (service, client, client_type, auth_value, auth_reason, auth_version, csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, indirect_object_code_identity, flags, last_modified) \
+          VALUES ('kTCCServiceScreenCapture', 'com.apple.screensharingd', 0, 2, 4, 1, NULL, NULL, 0, 'UNUSED', NULL, 0, strftime('%s','now'));"
+
+          echo "TCC permissions injected!"
+
+      - name: Enable VNC with Password
         run: |
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate \
@@ -32,7 +46,12 @@ jobs:
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw rewardoxy123 \
             -restart -agent -privs -all
-          echo "VNC ready: $?"
+          sleep 3
+          echo "VNC ready!"
+
+      - name: Open Finder to ensure display is active
+        run: |
+          open -a Finder
           sleep 3
 
       - name: Print Connection Info
