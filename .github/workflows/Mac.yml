@@ -23,19 +23,17 @@ jobs:
           sudo "$NX_BIN/nxserver" --startup || true
           sleep 3
 
-      - name: Set Runner Password (empty old password method)
+      - name: Reset Runner Password (sysadminctl)
         run: |
-          # runner has no password = empty string as old password
-          sudo dscl . -passwd /Users/runner "" rewardoxy123
-          echo "Runner password set: $?"
+          sudo sysadminctl -resetPasswordFor runner -newPassword rewardoxy123
+          echo "Exit: $?"
 
-      - name: Wake Active Session
+      - name: Keep Session Alive
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0
           sudo caffeinate -dimsu &
           open -a Finder
           sleep 2
-          osascript -e 'tell application "Finder" to activate'
 
       - name: Print Connection Info
         run: |
