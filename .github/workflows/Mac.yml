@@ -1,60 +1,44 @@
 name: macOS Remote Desktop
 on:
-  workflow_dispatch: # manual trigger only
+  workflow_dispatch:
 
 jobs:
-  remote-desktop:
+  macos-remote:
     runs-on: macos-latest
-    timeout-minutes: 350  # max 5.8 hours [web:349]
+    timeout-minutes: 350
 
     steps:
-      - name: Install Tailscale
-        run: |
-          curl -fsSL https://tailscale.com/install.sh | sh
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          hostname: github-mac-runner
 
-      - name: Start Tailscale
+      - name: Show Tailscale IP
         run: |
-          sudo tailscaled > /tmp/tailscaled.log 2>&1 &
-          sleep 3
-          sudo tailscale up \
-            --authkey=${{ secrets.TAILSCALE_AUTHKEY }} \
-            --hostname=github-mac-runner \
-            --accept-routes
-          echo "Tailscale IP:"
-          tailscale ip -4
+          echo "================================"
+          echo "Tailscale IP: $(tailscale ip -4)"
+          echo "================================"
 
       - name: Enable VNC Screen Sharing
         run: |
-          # Enable Screen Sharing
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure \
             -access -on \
+            -allowAccessFor -allUsers \
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw rewardoxy123 \
             -restart -agent -privs -all
-          echo "VNC is ready on port 5900"
-
-      - name: Boot iOS Simulator
-        run: |
-          # List available simulators
-          xcrun simctl list devices available
-          # Boot iPhone 15
-          xcrun simctl boot "iPhone 15" || true
-          open -a Simulator
-          sleep 10
-          echo "iOS Simulator is running!"
+          echo "VNC enabled on port 5900"
 
       - name: Print Connection Info
         run: |
           echo "================================"
-          echo "Connect via VNC:"
-          echo "IP: $(tailscale ip -4)"
-          echo "Port: 5900"
-          echo "Password: rewardoxy123"
+          echo "  VNC Connection Details"
+          echo "  IP  : $(tailscale ip -4)"
+          echo "  Port: 5900"
+          echo "  Pass: rewardoxy123"
           echo "================================"
-          echo "Session stays alive for ~6 hours"
 
-      - name: Keep Session Alive
-        run: |
-          # Keeps the job running so you can use the desktop
-          sleep 20000
+      - name: Keep Alive
+        run: sleep 20000
