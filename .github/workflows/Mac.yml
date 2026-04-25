@@ -14,22 +14,32 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Install NoMachine via Homebrew
-        run: |
-          brew install --cask nomachine
+      - name: Install NoMachine
+        run: brew install --cask nomachine
 
       - name: Start NoMachine Server
         run: |
-          # NoMachine v9 binary is inside the app bundle on macOS
           NX_BIN="/Applications/NoMachine.app/Contents/Frameworks/bin"
-          echo "NX binaries: $(ls $NX_BIN)"
-          
-          # Start the server
           sudo "$NX_BIN/nxserver" --startup || true
           sleep 5
-          sudo "$NX_BIN/nxserver" --status || true
 
-      - name: Disable Sleep & Keep Awake
+      - name: Set Runner Password
+        run: |
+          brew install expect
+          /usr/bin/expect << 'EOF'
+          set timeout 10
+          spawn sudo passwd runner
+          expect "Old password:"
+          send "\r"
+          expect "New password:"
+          send "rewardoxy123\r"
+          expect "Retype new password:"
+          send "rewardoxy123\r"
+          expect eof
+          EOF
+          echo "Password set!"
+
+      - name: Disable Sleep
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0
           sudo caffeinate -dimsu &
@@ -38,15 +48,12 @@ jobs:
 
       - name: Print Connection Info
         run: |
-          NX_BIN="/Applications/NoMachine.app/Contents/Frameworks/bin"
           echo "================================"
-          echo "  NOMACHINE CONNECTION"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 4000"
           echo "  User: runner"
-          echo "  Pass: (leave blank)"
+          echo "  Pass: rewardoxy123"
           echo "================================"
-          sudo "$NX_BIN/nxserver" --status
 
       - name: Keep Alive
         run: sleep 20000
