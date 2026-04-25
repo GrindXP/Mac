@@ -14,39 +14,41 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Setup Virtual Display
+      - name: Set Display to 1920x1080
         run: |
           brew install jakehilborn/jakehilborn/displayplacer
-          # Get screen ID and best mode dynamically
           SCREEN_ID=$(displayplacer list | grep "Persistent screen id" | head -1 | awk '{print $NF}')
-          echo "Screen ID: $SCREEN_ID"
-          displayplacer list
-          # Try modes from 0 upward until one works
-          for mode in 0 1 2 3 4 5; do
-            displayplacer "id:$SCREEN_ID mode:$mode" && echo "Mode $mode applied!" && break || true
-          done
+          # mode:10 = 1920x1080 (confirmed from your logs)
+          displayplacer "id:$SCREEN_ID mode:10"
+          echo "Display set to 1920x1080"
 
-      - name: Prevent Sleep & Wake Display
+      - name: Disable Screensaver & Prevent Sleep
         run: |
           sudo pmset -a sleep 0 displaysleep 0 disksleep 0 powernap 0
-          sudo caffeinate -d &
-          open -a Finder
-          sleep 3
-          osascript -e 'tell application "Finder" to activate'
-          sleep 2
+          sudo caffeinate -dimsu &
+          # Kill screensaver
+          killall ScreenSaverEngine 2>/dev/null || true
+          # Disable screensaver permanently
+          defaults -currentHost write com.apple.screensaver idleTime 0
+          defaults write com.apple.screensaver idleTime 0
 
-      - name: Set Runner Password
+      - name: Wake WindowServer & Open GUI
         run: |
-          # Use passwd with expect-style input
-          brew install expect
-          /usr/bin/expect << 'EOF'
-          spawn sudo passwd runner
-          expect "New password:"
-          send "rewardoxy123\r"
-          expect "Retype new password:"
-          send "rewardoxy123\r"
-          expect eof
+          # Force open multiple apps to ensure WindowServer renders
+          open -a Finder
+          sleep 2
+          open -a Terminal
+          sleep 2
+          # Bring Finder to front
+          osascript -e 'tell application "Finder" to activate'
+          sleep 1
+          # Simulate mouse movement to wake display
+          osascript << 'EOF'
+          tell application "System Events"
+            set the frontmost of every process whose name is "Finder" to true
+          end tell
           EOF
+          sleep 2
 
       - name: Enable VNC Screen Sharing
         run: |
@@ -59,16 +61,16 @@ jobs:
             -clientopts -setvncpw -vncpw rewardoxy123 \
             -restart -agent -privs -all
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null || true
-          echo "VNC ready!"
           sleep 3
+          echo "VNC ready!"
 
       - name: Print Connection Info
         run: |
           echo "================================"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 5900"
-          echo "  User: runner"
           echo "  Pass: rewardoxy123"
+          echo "  (Use TightVNC - no username needed)"
           echo "================================"
 
       - name: Keep Alive
