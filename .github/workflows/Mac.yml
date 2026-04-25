@@ -14,11 +14,9 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
-      - name: Show Tailscale IP
+      - name: Set runner password
         run: |
-          echo "================================"
-          echo "Tailscale IP: $(tailscale ip -4)"
-          echo "================================"
+          sudo dscl . -passwd /Users/runner rewardoxy123
 
       - name: Enable VNC Screen Sharing
         run: |
@@ -29,7 +27,11 @@ jobs:
             -clientopts -setvnclegacy -vnclegacy yes \
             -clientopts -setvncpw -vncpw rewardoxy123 \
             -restart -agent -privs -all
-          echo "VNC enabled on port 5900"
+
+      - name: Enable Screen Sharing via defaults
+        run: |
+          sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist || true
 
       - name: Print Connection Info
         run: |
@@ -37,6 +39,7 @@ jobs:
           echo "  VNC Connection Details"
           echo "  IP  : $(tailscale ip -4)"
           echo "  Port: 5900"
+          echo "  User: runner"
           echo "  Pass: rewardoxy123"
           echo "================================"
 
