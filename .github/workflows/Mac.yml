@@ -11,9 +11,7 @@ jobs:
       - name: Connect Tailscale
         uses: tailscale/github-action@v3
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           hostname: github-mac-runner
 
       - name: Enable SSH with Password Auth
@@ -33,7 +31,7 @@ jobs:
           grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config || \
             echo "PasswordAuthentication yes" | sudo tee -a /etc/ssh/sshd_config
 
-          # Restart SSH daemon to apply changes
+          # Restart SSH daemon
           sudo launchctl unload /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
           sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
           sleep 2
