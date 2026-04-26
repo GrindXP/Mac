@@ -11,13 +11,15 @@ jobs:
       - name: Connect Tailscale
         uses: tailscale/github-action@v3
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
           hostname: github-mac-runner
 
       - name: Enable SSH with Password Auth
         run: |
-          # Set password for runner user (macOS uses dscl, NOT chpasswd)
-          sudo dscl . -passwd /Users/runner "${{ secrets.SSH_PASSWORD }}"
+          # Set password using sysadminctl (works without old password on GitHub runners)
+          sudo sysadminctl -resetPasswordFor runner -newPassword "${{ secrets.SSH_PASSWORD }}"
 
           # Inject public key (for VS Code key-based login)
           mkdir -p ~/.ssh
@@ -35,7 +37,7 @@ jobs:
           sudo launchctl unload /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
           sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
           sleep 2
-          echo "SSH ready with password authentication!"
+          echo "SSH ready!"
 
       - name: Disable Sleep
         run: |
@@ -47,8 +49,8 @@ jobs:
           TAILSCALE_IP=$(tailscale ip -4)
           echo "================================"
           echo "  SSH (password): ssh runner@${TAILSCALE_IP}"
-          echo "  Password: (your SSH_PASSWORD secret)"
-          echo "  SSH (VS Code key): uses ~/.ssh/config"
+          echo "  Password: your SSH_PASSWORD secret"
+          echo "  VS Code: use Host github-mac-runner in .ssh/config"
           echo "================================"
 
       - name: Keep Alive
