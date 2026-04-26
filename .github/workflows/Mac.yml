@@ -33,14 +33,33 @@ jobs:
           sleep 15
           echo "Simulator booted!"
 
-      - name: Start agent-simulator (Browser UI)
+      - name: Start Screen Stream
         run: |
-          git clone https://github.com/jasonkneen/agent-simulator
-          cd agent-simulator
-          npm install
-          npm start -- --port 9100 &
-          sleep 10
-          echo "Browser UI ready on port 9100"
+          mkdir -p /tmp/stream
+
+          # Screenshot loop
+          while true; do
+            xcrun simctl io booted screenshot /tmp/stream/screen.png 2>/dev/null || \
+            screencapture -x -t png /tmp/stream/screen.png 2>/dev/null
+            sleep 1
+          done &
+
+          # Write HTML + server using Python (avoids YAML << conflict)
+          python3 -c "
+          html = open('/tmp/stream/index.html','w')
+          html.write('<!DOCTYPE html><html><head><title>iOS Simulator</title><style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center}img{max-height:95vh;cursor:pointer;margin-top:10px}#s{color:#0f0;font-family:monospace;padding:5px}</style></head><body><div id=\"s\">Live - click to tap</div><img id=\"scr\" src=\"screen.png\"/><script>const i=document.getElementById(\"scr\");setInterval(()=>{i.src=\"screen.png?t=\"+Date.now()},800);i.addEventListener(\"click\",async e=>{const r=i.getBoundingClientRect();const x=Math.round((e.clientX-r.left)*390/r.width);const y=Math.round((e.clientY-r.top)*844/r.height);await fetch(\"/tap?x=\"+x+\"&y=\"+y);document.getElementById(\"s\").textContent=\"Tapped \"+x+\",\"+y;});</script></body></html>')
+          html.close()
+          "
+
+          python3 -c "
+          srv = open('/tmp/stream/server.py','w')
+          srv.write('import http.server,urllib.parse,subprocess,os\nclass H(http.server.SimpleHTTPRequestHandler):\n    def do_GET(self):\n        if self.path.startswith(\"/tap\"):\n            q=urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)\n            x,y=q.get(\"x\",[\"0\"])[0],q.get(\"y\",[\"0\"])[0]\n            subprocess.run([\"xcrun\",\"simctl\",\"io\",\"booted\",\"tap\",x,y])\n            self.send_response(200);self.end_headers()\n        else:super().do_GET()\n    def log_message(self,*a):pass\nos.chdir(\"/tmp/stream\")\nhttp.server.HTTPServer((\"\",9100),H).serve_forever()\n')
+          srv.close()
+          "
+
+          python3 /tmp/stream/server.py &
+          sleep 3
+          echo "Stream ready on port 9100"
 
       - name: Disable Sleep
         run: |
@@ -52,10 +71,8 @@ jobs:
           TAILSCALE_IP=$(tailscale ip -4)
           echo "================================"
           echo "  SSH: ssh runner@${TAILSCALE_IP}"
-          echo ""
-          echo "  iOS Browser UI tunnel:"
-          echo "  ssh -i C:/Users/DELL/.ssh/sshgithubmac -L 9100:localhost:9100 -N runner@${TAILSCALE_IP}"
-          echo "  Then open: http://localhost:9100"
+          echo "  Tunnel: ssh -i C:/Users/DELL/.ssh/sshgithubmac -L 9100:localhost:9100 -N runner@${TAILSCALE_IP}"
+          echo "  Browser: http://localhost:9100"
           echo "================================"
 
       - name: Keep Alive
